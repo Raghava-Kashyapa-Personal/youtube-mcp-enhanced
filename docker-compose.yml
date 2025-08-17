@@ -1,0 +1,46 @@
+# YouTube MCP Server - Docker Compose Configuration
+# Following the same pattern as Google Calendar MCP
+
+services:
+  youtube-mcp:
+    build: .
+    container_name: youtube-mcp
+    restart: unless-stopped
+    
+    # Environment configuration
+    env_file: .env
+    
+    # Override environment for HTTP transport
+    environment:
+      - PORT=3002
+      - HOST=0.0.0.0
+      - TRANSPORT=http
+    
+    # Start HTTP server
+    command: ["node", "dist/index.js", "--transport", "http", "--port", "3002", "--host", "0.0.0.0"]
+    
+    # Port binding (localhost only for security)
+    ports:
+      - "127.0.0.1:3002:3002"
+    
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: "1.0"
+        reservations:
+          memory: 256M
+          cpus: "0.5"
+    
+    # Security options
+    security_opt:
+      - no-new-privileges:true
+    
+    # Health check
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:3002/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
