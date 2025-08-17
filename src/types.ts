@@ -32,11 +32,20 @@ export interface RelatedVideosParams {
 }
 
 /**
- * Transcript parameters
+ * Transcript parameters with segmentation support
  */
 export interface TranscriptParams {
   videoId: string;
   language?: string;
+  // Time-based segmentation
+  startTime?: string | number;  // Time in seconds or "MM:SS" format
+  endTime?: string | number;    // Time in seconds or "MM:SS" format
+  lastMinutes?: number;         // Get last N minutes
+  firstMinutes?: number;        // Get first N minutes
+  // Segment-based limitation
+  maxSegments?: number;         // Maximum number of segments to return
+  startIndex?: number;          // Start from segment index
+  endIndex?: number;            // End at segment index
 }
 
 /**

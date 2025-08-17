@@ -87,7 +87,7 @@ export async function startMcpServer(config?: any) {
                 },
                 {
                     name: 'transcripts_getTranscript',
-                    description: 'Get the transcript of a YouTube video',
+                    description: 'Get the transcript of a YouTube video with segmentation support to avoid token limits',
                     inputSchema: {
                         type: 'object',
                         properties: {
@@ -97,7 +97,35 @@ export async function startMcpServer(config?: any) {
                             },
                             language: {
                                 type: 'string',
-                                description: 'Language code for the transcript',
+                                description: 'Language code for the transcript (default: en)',
+                            },
+                            startTime: {
+                                type: ['string', 'number'],
+                                description: 'Start time in seconds or "MM:SS"/"HH:MM:SS" format',
+                            },
+                            endTime: {
+                                type: ['string', 'number'],
+                                description: 'End time in seconds or "MM:SS"/"HH:MM:SS" format',
+                            },
+                            lastMinutes: {
+                                type: 'number',
+                                description: 'Get only the last N minutes of the video',
+                            },
+                            firstMinutes: {
+                                type: 'number',
+                                description: 'Get only the first N minutes of the video',
+                            },
+                            maxSegments: {
+                                type: 'number',
+                                description: 'Maximum number of segments to return (recommended: 500 for token limits)',
+                            },
+                            startIndex: {
+                                type: 'number',
+                                description: 'Start from segment index (0-based)',
+                            },
+                            endIndex: {
+                                type: 'number',
+                                description: 'End at segment index (0-based)',
                             },
                         },
                         required: ['videoId'],
