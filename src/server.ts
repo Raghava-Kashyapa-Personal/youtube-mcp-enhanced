@@ -28,8 +28,8 @@ export async function startMcpServer(config?: any) {
     }
     const server = new Server(
         {
-            name: 'zubeid-youtube-mcp-server',
-            version: '1.0.0',
+            name: 'rkashyapa-youtube-mcp-enhanced',
+            version: '2.0.0',
         },
         {
             capabilities: {
@@ -87,45 +87,45 @@ export async function startMcpServer(config?: any) {
                 },
                 {
                     name: 'transcripts_getTranscript',
-                    description: 'Get the transcript of a YouTube video with segmentation support to avoid token limits',
+                    description: 'Get YouTube video transcript with segmentation to avoid 25K token limits. IMPORTANT: Use startIndex+maxSegments for reliable access to any part of long videos. For 7+ hour videos, use startIndex: 0-1000 (hours 1-2), 1000-2000 (hours 2-3), 2000-3000 (hours 3-4), 3000-4000 (hours 4-6), 4000+ (final content).',
                     inputSchema: {
                         type: 'object',
                         properties: {
                             videoId: {
                                 type: 'string',
-                                description: 'The YouTube video ID',
+                                description: 'The YouTube video ID (required)',
                             },
                             language: {
                                 type: 'string',
-                                description: 'Language code for the transcript (default: en)',
+                                description: 'Language code (default: en)',
                             },
                             startTime: {
-                                type: ['string', 'number'],
-                                description: 'Start time in seconds or "MM:SS"/"HH:MM:SS" format',
+                                type: 'number',
+                                description: '⚠️ COMPATIBILITY ISSUE: Use startIndex instead for reliable results',
                             },
                             endTime: {
-                                type: ['string', 'number'],
-                                description: 'End time in seconds or "MM:SS"/"HH:MM:SS" format',
+                                type: 'number',
+                                description: '⚠️ COMPATIBILITY ISSUE: Use maxSegments instead for reliable results',
                             },
                             lastMinutes: {
                                 type: 'number',
-                                description: 'Get only the last N minutes of the video',
+                                description: '✅ RELIABLE: Get last N minutes (e.g., 30 for last 30 minutes)',
                             },
                             firstMinutes: {
                                 type: 'number',
-                                description: 'Get only the first N minutes of the video',
+                                description: '✅ RELIABLE: Get first N minutes (e.g., 120 for first 2 hours)',
                             },
                             maxSegments: {
                                 type: 'number',
-                                description: 'Maximum number of segments to return (recommended: 500 for token limits)',
+                                description: '✅ RECOMMENDED: Max segments to return (use 300-500 to stay under token limits)',
                             },
                             startIndex: {
                                 type: 'number',
-                                description: 'Start from segment index (0-based)',
+                                description: '✅ RELIABLE: Start from segment index (0=beginning, 3000=~hour 4-5). Use this to access middle content of long videos.',
                             },
                             endIndex: {
                                 type: 'number',
-                                description: 'End at segment index (0-based)',
+                                description: '✅ RELIABLE: End at segment index (0-based). Optional when using maxSegments.',
                             },
                         },
                         required: ['videoId'],
@@ -225,6 +225,8 @@ export async function startMcpServer(config?: any) {
                 }
                 
                 case 'transcripts_getTranscript': {
+                    // Debug logging for parameter debugging
+                    console.log('[DEBUG] Received transcript args:', JSON.stringify(args, null, 2));
                     const result = await transcriptService.getTranscript(args as unknown as TranscriptParams);
                     return {
                         content: [{

@@ -18,18 +18,26 @@ export class TranscriptService {
   }
 
   /**
-   * Parse time string (MM:SS or HH:MM:SS) to seconds
+   * Parse time string (MM:SS or HH:MM:SS) to seconds or handle number input
    */
   private parseTimeToSeconds(time: string | number): number {
     if (typeof time === 'number') return time;
-    
-    const parts = time.split(':').map(Number);
-    if (parts.length === 2) {
-      // MM:SS format
-      return parts[0] * 60 + parts[1];
-    } else if (parts.length === 3) {
-      // HH:MM:SS format
-      return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (typeof time === 'string') {
+      // Try parsing as number first (string representation of seconds)
+      const numericValue = parseFloat(time);
+      if (!isNaN(numericValue)) {
+        return numericValue;
+      }
+      
+      // Parse as time format
+      const parts = time.split(':').map(Number);
+      if (parts.length === 2) {
+        // MM:SS format
+        return parts[0] * 60 + parts[1];
+      } else if (parts.length === 3) {
+        // HH:MM:SS format
+        return parts[0] * 3600 + parts[1] * 60 + parts[2];
+      }
     }
     return 0;
   }
@@ -42,15 +50,22 @@ export class TranscriptService {
     
     // Calculate total duration for relative time calculations
     const totalDuration = Math.max(...transcript.map(s => s.start + s.duration));
+    console.log('[DEBUG] Total duration:', totalDuration, 'seconds');
+    console.log('[DEBUG] Filter params:', JSON.stringify(params));
     
     // Apply time-based filtering first
     if (params.startTime !== undefined || params.endTime !== undefined) {
       const startSeconds = params.startTime !== undefined ? this.parseTimeToSeconds(params.startTime) : 0;
       const endSeconds = params.endTime !== undefined ? this.parseTimeToSeconds(params.endTime) : totalDuration;
       
+      console.log('[DEBUG] Time filtering - startSeconds:', startSeconds, 'endSeconds:', endSeconds);
+      console.log('[DEBUG] Original segments:', filtered.length);
+      
       filtered = filtered.filter(segment => 
         segment.start >= startSeconds && segment.start <= endSeconds
       );
+      
+      console.log('[DEBUG] After time filtering:', filtered.length, 'segments');
     }
     
     // Apply lastMinutes filter

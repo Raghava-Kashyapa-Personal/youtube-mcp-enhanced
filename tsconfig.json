@@ -20,11 +20,7 @@
     "noImplicitAny": false
   },
   "include": [
-    "src/services/**/*",
-    "src/index.ts",
-    "src/server.ts",
-    "src/cli.ts",
-    "src/types.ts"
+    "src/**/*"
   ],
   "exclude": [
     "node_modules",
