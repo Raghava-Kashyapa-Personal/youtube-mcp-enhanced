@@ -37,7 +37,7 @@ services:
     security_opt:
       - no-new-privileges:true
     
-    # Health check
+    # Health check - using curl (now installed in Dockerfile)
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:3002/health || exit 1"]
       interval: 30s
