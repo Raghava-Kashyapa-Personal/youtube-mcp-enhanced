@@ -11,6 +11,7 @@ import { VideoService } from './services/video.js';
 import { TranscriptService } from './services/transcript.js';
 import { PlaylistService } from './services/playlist.js';
 import { ChannelService } from './services/channel.js';
+import { HttpApiServer } from './http-api.js';
 import {
     VideoParams,
     SearchParams,
@@ -300,13 +301,16 @@ export async function startMcpServer(config?: any) {
         });
         await server.connect(transport);
         
+        // Create HTTP API server instance for n8n endpoints
+        const httpApiServer = new HttpApiServer();
+
         // Create HTTP server
         const httpServer = http.createServer(async (req, res) => {
             // Handle CORS
             res.setHeader('Access-Control-Allow-Origin', '*');
             res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
             res.setHeader('Access-Control-Allow-Headers', 'Content-Type, mcp-session-id');
-            
+
             if (req.method === 'OPTIONS') {
                 res.writeHead(200);
                 res.end();
@@ -325,6 +329,23 @@ export async function startMcpServer(config?: any) {
                 return;
             }
 
+            // Handle n8n API endpoints first
+            const url = new URL(req.url || '', `http://${req.headers.host}`);
+            if (url.pathname.startsWith('/api/')) {
+                try {
+                    await httpApiServer.handleRequest(req, res);
+                    return;
+                } catch (error) {
+                    console.error(`API error: ${error instanceof Error ? error.message : error}`);
+                    if (!res.headersSent) {
+                        res.writeHead(500, { 'Content-Type': 'application/json' });
+                        res.end(JSON.stringify({ error: 'Internal server error' }));
+                    }
+                    return;
+                }
+            }
+
+            // Handle MCP transport for other requests
             try {
                 await transport.handleRequest(req, res);
             } catch (error) {

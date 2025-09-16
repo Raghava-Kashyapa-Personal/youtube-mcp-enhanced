@@ -36,7 +36,7 @@ export class HttpApiServer {
     });
   }
 
-  private async handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
+  async handleRequest(req: http.IncomingMessage, res: http.ServerResponse): Promise<void> {
     const url = new URL(req.url || '', `http://${req.headers.host}`);
     const path = url.pathname;
     const method = req.method;
