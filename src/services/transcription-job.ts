@@ -52,7 +52,29 @@ export class TranscriptionJobService {
 
   // Get job status - used by both MCP and HTTP
   getJob(jobId: string): TranscriptionJob | undefined {
-    return this.jobs.get(jobId);
+    // FAILSAFE: Clean old completed jobs first (n8n failure protection)
+    this.cleanupOrphanedJobs();
+
+    const job = this.jobs.get(jobId);
+
+    // PRIMARY: Delete on retrieval (elegant path)
+    if (job && (job.status === 'completed' || job.status === 'failed')) {
+      this.jobs.delete(jobId);
+    }
+
+    return job;
+  }
+
+  // Clean up orphaned completed jobs older than 5 minutes
+  private cleanupOrphanedJobs(): void {
+    const fiveMinutesAgo = new Date(Date.now() - (5 * 60 * 1000));
+
+    for (const [jobId, job] of this.jobs.entries()) {
+      if ((job.status === 'completed' || job.status === 'failed') &&
+          job.completedAt && job.completedAt < fiveMinutesAgo) {
+        this.jobs.delete(jobId);
+      }
+    }
   }
 
   // Background processing - use existing MCP transcript service

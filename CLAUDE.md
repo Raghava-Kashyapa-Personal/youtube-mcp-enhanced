@@ -536,14 +536,143 @@ curl -X POST -H "Content-Type: application/json" -H "Accept: application/json, t
 - ✅ **Uptime**: >99.9% service availability - **ACHIEVED**
 - ✅ **Error Rate**: <1% across all services - **ACHIEVED**
 
-## 🔮 Next Session Priorities
+## 🎯 NEW: Simplified Synchronous Processing Architecture
 
-1. ✅ **COMPLETED**: ~~Implement robust multi-strategy transcript system~~ - **YouTube MCP fully operational**
-2. **📝 Documentation**: Create operation runbooks for common tasks
-3. **🔧 Optimization**: Add caching layer for transcript responses (optional enhancement)
-4. **📊 Monitoring**: Enhanced health monitoring and alerting system
-5. **🧪 Testing**: Comprehensive test suite for all MCP tools
-6. **🆕 Expansion**: Additional MCP services (GitHub, Slack, etc.)
+### **Current Implementation Transition** 🔄
+**From**: Complex async job system with memory management
+**To**: Simple synchronous processing with playlist management
+**Goal**: One video at a time, controlled by n8n workflow
+
+### **New Simplified Workflow**
+```
+1. Add video to "To Process" playlist
+2. n8n detects video (every 30min): GET /api/playlist/next-video
+3. n8n transcribes: POST /api/transcribe-video (SYNCHRONOUS)
+   - Transcribe video using existing transcript service
+   - Return complete transcript
+4. n8n summarizes transcript with GPT (n8n handles this)
+5. n8n saves results to storage
+6. n8n removes video: DELETE /api/playlist/remove-video
+```
+
+### **New API Endpoints (Synchronous)**
+```typescript
+// Get next video to process
+GET /api/playlist/next-video?playlistId=PLxxx
+→ { videoId, title, duration, publishedAt, playlistItemId }
+
+// Transcribe single video synchronously
+POST /api/transcribe-video
+{ videoId: "abc123" }
+→ { videoId, title, transcript, metadata, processingTime }
+
+// Remove video from playlist
+DELETE /api/playlist/remove-video
+{ playlistItemId: "PLitemXXX" }
+→ { success: true, removed: true }
+```
+
+### **Architecture Benefits**
+- ✅ **Reusable Core**: Same services for both MCP and HTTP API
+- ✅ **No Memory Leaks**: No job storage, immediate processing
+- ✅ **Sequential Processing**: Natural one-at-a-time workflow
+- ✅ **n8n Control**: n8n manages playlist cleanup AND summarization
+- ✅ **Synchronous**: Simple request-response pattern
+- ✅ **Simplified**: Server only handles transcription, n8n handles AI processing
+
+### **Core Service Reusability Design**
+```typescript
+// Shared core services (used by both MCP and HTTP)
+- TranscriptService: Video transcription (existing)
+- VideoService: Video metadata (existing)
+- PlaylistService: Playlist management (enhanced with write operations)
+
+// Transport layers (use core services)
+- MCP Tools: Direct service calls
+- HTTP API: Service calls wrapped in REST endpoints
+
+// External processing (handled by n8n)
+- GPT Summarization: n8n calls OpenAI directly
+- Data Storage: n8n handles saving results
+```
+
+## 🔮 Implementation Priorities
+
+1. ✅ **Core Service Enhancement**: Add playlist write operations (COMPLETED)
+2. **🌐 HTTP API Updates**: Replace async job system with synchronous endpoints
+3. **⚙️ N8N Workflow**: Update to use new synchronous pattern
+4. **🧪 Testing**: Verify both MCP and HTTP API functionality
+5. **📝 Documentation**: Update all references to new architecture
+
+### **Implementation Notes**
+- **Removed**: GPT summarization from server (n8n handles this)
+- **Simplified**: Only 3 endpoints needed: next-video, transcribe-video, remove-video
+- **OAuth Note**: Video removal requires OAuth 2.0 (not just API key)
+
+## 🚨 VPS Environment & Development Guidelines
+
+### **CRITICAL: Port Management on Production VPS**
+**Issue**: Multiple production services running on allocated ports
+**Rule**: ALWAYS check port availability before starting development servers
+
+```bash
+# Check what's running on all common ports
+lsof -i :3000-3010
+
+# Common production services on this VPS:
+# Port 3000: n8n-mcp
+# Port 3001: calendar-mcp (production)
+# Port 3002: youtube-mcp (production)
+# Port 3003: gmail-mcp (production)
+# Port 8080: n8n workflow engine
+```
+
+### **Safe Development Practices**
+```bash
+# ALWAYS use ports 3005+ for local development
+# NEVER use ports 3000-3003 (production services)
+
+# Check before starting
+lsof -i :YOUR_PORT || echo "Port available"
+
+# Safe development ports
+node dist/server.js --transport http --port 3005  # YouTube dev
+node dist/server.js --transport http --port 3006  # Testing
+node dist/server.js --transport http --port 3007  # Backup testing
+```
+
+### **VPS Service Status Check**
+```bash
+# Check all containers
+docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"
+
+# Check specific service health
+curl -s https://mcp.qualitastech.com/youtube/health
+curl -s https://mcp.qualitastech.com/calendar/health
+
+# Memory usage (VPS is memory-constrained)
+free -h && docker stats --no-stream
+```
+
+### **Development Environment Setup**
+```bash
+# Memory-safe build (VPS has limited RAM)
+NODE_OPTIONS="--max-old-space-size=1024" npm run build
+
+# Clean up test processes
+pkill -f "node dist/server.js" || true
+
+# Safe server start with port check
+PORT=3005
+lsof -i :$PORT && echo "Port $PORT in use!" || node dist/server.js --transport http --port $PORT
+```
+
+### **When Resuming Development**
+1. **Environment Check**: `docker ps` to see running services
+2. **Port Check**: `lsof -i :3000-3010` to see port usage
+3. **Memory Check**: `free -h` to ensure sufficient resources
+4. **Use Safe Ports**: Always 3005+ for development
+5. **Production Intact**: Never stop ports 3000-3003
 
 ---
 
