@@ -105,6 +105,13 @@ export class HttpApiServer {
       return;
     }
 
+    // POST /api/oauth/exchange - Exchange authorization code for tokens
+    if (method === 'POST' && path === '/api/oauth/exchange') {
+      const body = await this.readBody(req);
+      await this.handleOAuthExchange(body, res);
+      return;
+    }
+
     // 404
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Not found' }));
@@ -266,6 +273,39 @@ export class HttpApiServer {
       res.writeHead(500, { 'Content-Type': 'application/json' });
       res.end(JSON.stringify({
         error: error instanceof Error ? error.message : 'Unknown error'
+      }));
+    }
+  }
+
+  /**
+   * Handle OAuth code exchange
+   * Exchange authorization code for access tokens
+   */
+  private async handleOAuthExchange(body: any, res: http.ServerResponse): Promise<void> {
+    const { code } = body;
+
+    if (!code) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Authorization code required' }));
+      return;
+    }
+
+    try {
+      const tokens = await this.playlistService.exchangeCodeForTokens(code);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        message: 'OAuth tokens obtained successfully',
+        hasRefreshToken: !!tokens.refresh_token
+      }));
+
+    } catch (error) {
+      console.error('OAuth exchange error:', error);
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: error instanceof Error ? error.message : 'Unknown error',
+        code
       }));
     }
   }

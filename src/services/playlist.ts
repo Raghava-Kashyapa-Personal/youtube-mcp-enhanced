@@ -230,4 +230,11 @@ export class PlaylistService {
       return { authenticated: false, authUrl };
     }
   }
+
+  /**
+   * Exchange authorization code for OAuth tokens
+   */
+  async exchangeCodeForTokens(code: string) {
+    return await this.oauthClient.exchangeCodeForTokens(code);
+  }
 }
