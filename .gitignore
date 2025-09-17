@@ -28,3 +28,6 @@ Thumbs.db
 gcp-oauth.keys.json
 mcp-credentials.txt
 tokens/
+
+# Internal documentation
+CLAUDE.md
