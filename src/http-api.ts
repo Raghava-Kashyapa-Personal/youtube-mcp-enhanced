@@ -92,6 +92,19 @@ export class HttpApiServer {
       return;
     }
 
+    // POST /api/playlist/add-video - Add video to playlist
+    if (method === 'POST' && path === '/api/playlist/add-video') {
+      const body = await this.readBody(req);
+      await this.handleAddVideo(body, res);
+      return;
+    }
+
+    // GET /api/oauth/status - Check OAuth authentication status
+    if (method === 'GET' && path === '/api/oauth/status') {
+      await this.handleOAuthStatus(res);
+      return;
+    }
+
     // 404
     res.writeHead(404, { 'Content-Type': 'application/json' });
     res.end(JSON.stringify({ error: 'Not found' }));
@@ -197,6 +210,62 @@ export class HttpApiServer {
         error: error instanceof Error ? error.message : 'Unknown error',
         playlistItemId,
         note: 'Video removal requires OAuth 2.0 authentication'
+      }));
+    }
+  }
+
+  /**
+   * Handle adding video to playlist
+   * Reuses core PlaylistService for consistency with MCP
+   */
+  private async handleAddVideo(body: any, res: http.ServerResponse): Promise<void> {
+    const { playlistId, videoId } = body;
+
+    if (!playlistId || !videoId) {
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'playlistId and videoId required' }));
+      return;
+    }
+
+    try {
+      const playlistItemId = await this.playlistService.addVideoToPlaylist(playlistId, videoId);
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        success: true,
+        playlistItemId,
+        playlistId,
+        videoId
+      }));
+
+    } catch (error) {
+      console.error('Video addition error:', error);
+      res.writeHead(400, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: error instanceof Error ? error.message : 'Unknown error',
+        playlistId,
+        videoId,
+        note: 'Video addition requires OAuth 2.0 authentication'
+      }));
+    }
+  }
+
+  /**
+   * Handle OAuth status check
+   * Returns authentication status and auth URL if needed
+   */
+  private async handleOAuthStatus(res: http.ServerResponse): Promise<void> {
+    try {
+      const oauthStatus = await this.playlistService.getOAuthStatus();
+
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify(oauthStatus));
+
+    } catch (error) {
+      console.error('OAuth status error:', error);
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({
+        error: error instanceof Error ? error.message : 'Unknown error'
       }));
     }
   }

@@ -1,23 +1,27 @@
 import { google } from 'googleapis';
 import { PlaylistParams, PlaylistItemsParams, SearchParams } from '../types.js';
+import { createSharedOAuthClient } from '../shared-oauth/index.js';
 
 /**
  * Service for interacting with YouTube playlists
+ * Supports both read (API key) and write (OAuth) operations
  */
 export class PlaylistService {
   private youtube;
+  private youtubeWithOAuth;
   private initialized = false;
+  private oauthClient = createSharedOAuthClient();
 
   constructor() {
     // Don't initialize in constructor
   }
 
   /**
-   * Initialize the YouTube client only when needed
+   * Initialize the YouTube client for read operations (API key)
    */
   private initialize() {
     if (this.initialized) return;
-    
+
     const apiKey = process.env.YOUTUBE_API_KEY;
     if (!apiKey) {
       throw new Error('YOUTUBE_API_KEY environment variable is not set.');
@@ -27,8 +31,28 @@ export class PlaylistService {
       version: "v3",
       auth: apiKey
     });
-    
+
     this.initialized = true;
+  }
+
+  /**
+   * Initialize YouTube client with OAuth for write operations
+   */
+  private async initializeWithOAuth() {
+    const hasValidTokens = await this.oauthClient.hasValidTokens('youtube');
+
+    if (!hasValidTokens) {
+      throw new Error('YouTube OAuth authentication required for write operations. Please authenticate first.');
+    }
+
+    const authenticatedClient = await this.oauthClient.getAuthenticatedClient('youtube');
+
+    this.youtubeWithOAuth = google.youtube({
+      version: "v3",
+      auth: authenticatedClient
+    });
+
+    return this.youtubeWithOAuth;
   }
 
   /**
@@ -134,24 +158,49 @@ export class PlaylistService {
   /**
    * Remove a video from a playlist
    * Reusable by both MCP and HTTP API
-   * Note: Requires OAuth 2.0 with playlist modification scope
+   * Uses OAuth 2.0 authentication for write operations
    */
   async removeVideoFromPlaylist(playlistItemId: string): Promise<boolean> {
     try {
-      this.initialize();
+      const youtubeWithAuth = await this.initializeWithOAuth();
 
-      // Note: This requires OAuth 2.0 authentication, not just API key
-      // The current implementation uses API key only, so this will fail
-      // TODO: Add OAuth 2.0 support for write operations
-      await this.youtube.playlistItems.delete({
+      await youtubeWithAuth.playlistItems.delete({
         id: playlistItemId
       });
 
       return true;
     } catch (error) {
-      // For now, return false and log the error
-      console.error('Playlist removal failed (OAuth required):', error);
+      console.error('Playlist removal failed:', error);
       throw new Error(`Failed to remove video from playlist: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Add a video to a playlist
+   * Reusable by both MCP and HTTP API
+   * Uses OAuth 2.0 authentication for write operations
+   */
+  async addVideoToPlaylist(playlistId: string, videoId: string): Promise<string> {
+    try {
+      const youtubeWithAuth = await this.initializeWithOAuth();
+
+      const response = await youtubeWithAuth.playlistItems.insert({
+        part: ['snippet'],
+        requestBody: {
+          snippet: {
+            playlistId: playlistId,
+            resourceId: {
+              kind: 'youtube#video',
+              videoId: videoId
+            }
+          }
+        }
+      });
+
+      return response.data.id || '';
+    } catch (error) {
+      console.error('Failed to add video to playlist:', error);
+      throw new Error(`Failed to add video to playlist: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
@@ -165,6 +214,20 @@ export class PlaylistService {
       return nextVideo !== null;
     } catch (error) {
       throw new Error(`Failed to check playlist videos: ${error instanceof Error ? error.message : String(error)}`);
+    }
+  }
+
+  /**
+   * Get OAuth authentication status for YouTube write operations
+   */
+  async getOAuthStatus(): Promise<{ authenticated: boolean; authUrl?: string }> {
+    const hasValidTokens = await this.oauthClient.hasValidTokens('youtube');
+
+    if (hasValidTokens) {
+      return { authenticated: true };
+    } else {
+      const authUrl = await this.oauthClient.getAuthUrl('youtube');
+      return { authenticated: false, authUrl };
     }
   }
 }
